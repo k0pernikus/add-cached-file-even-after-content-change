@@ -1,0 +1,40 @@
+name: updated-checksum
+
+on:
+  push:
+  workflow_dispatch:
+
+env:
+  ALPHA_SHA256: 1921b918b15842c7fdb115078e610263fac85f159c1d8e0ecec3d89a0faa4005
+  BRAVO_SHA256: 8a51c1b8853b568b5ca25570ef461d6f5a8896f64a952364ed61be1a1e99eb00
+
+jobs:
+  updating-url-and-checksum-together-works:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Serve both files over HTTP
+        run: |
+          python3 -m http.server 8099 --bind 127.0.0.1 --directory . &
+          timeout 10 bash -c 'until curl --silent --fail --head http://127.0.0.1:8099/folder_1/same_file; do sleep 0.2; done'
+
+      - name: Build folder_1 with folder_1's digest
+        run: |
+          docker build \
+            --build-arg SRC_URL=http://127.0.0.1:8099/folder_1/same_file \
+            --build-arg SRC_SHA256="$ALPHA_SHA256" \
+            --output type=local,dest=out_1 .
+
+      - name: The payload is ALPHA
+        run: diff folder_1/same_file out_1/payload
+
+      - name: Build folder_2 with folder_2's digest, both updated together
+        run: |
+          docker build \
+            --build-arg SRC_URL=http://127.0.0.1:8099/folder_2/same_file \
+            --build-arg SRC_SHA256="$BRAVO_SHA256" \
+            --output type=local,dest=out_2 .
+
+      - name: The payload is BRAVO
+        run: diff folder_2/same_file out_2/payload

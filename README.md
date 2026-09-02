@@ -26,6 +26,11 @@ ARG SRC_SHA256
 ADD --checksum=sha256:${SRC_SHA256} ${SRC_URL} /payload
 ```
 
+## Workflows
+
+- `repro` fails. The URL is updated and the checksum is not.
+- `updated-checksum` passes. Both are updated together.
+
 ## Observed
 
 | build | URL | declared digest | `/payload` | expected |
@@ -66,11 +71,6 @@ if hs.src.Checksum != "" {
 `CacheKey` then returns `formatCacheKey(md.Filename, md.Digest, md.LastModified)`. The URL is absent, and
 `getFileName` reduces it to `path.Base(u.Path)` — so `folder_1/same_file` and `folder_2/same_file` both
 contribute `same_file` and the directory is discarded. `LastModified` is nil, because nothing was fetched.
-
-## Suggested fix
-
-Include the URL in the cache key. An unchanged Dockerfile keeps the same URL, so it still hits the cache and
-still skips the fetch. Only a changed URL misses, and that fetch is what catches a stale digest.
 
 ## Impact
 
