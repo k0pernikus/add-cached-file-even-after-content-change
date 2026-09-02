@@ -7,6 +7,7 @@ on:
 env:
   ALPHA_SHA256: 1921b918b15842c7fdb115078e610263fac85f159c1d8e0ecec3d89a0faa4005
   BRAVO_SHA256: 8a51c1b8853b568b5ca25570ef461d6f5a8896f64a952364ed61be1a1e99eb00
+  UNSEEN_SHA256: 380ff93584f22d53e11cc442f8207c014465f4d6a66a0ddbdb16d5e7e06559a2
 
 jobs:
   add-checksum-ignores-the-url:
@@ -42,7 +43,7 @@ jobs:
       - name: Build 2 must produce what its URL serves — THIS STEP IS THE BUG
         run: diff folder_2/same_file out_2/payload
 
-      - name: Control — folder_2 with folder_2's own digest serves different bytes
+      - name: Control — that URL does serve different bytes
         if: always()
         run: |
           docker build \
@@ -51,11 +52,22 @@ jobs:
             --output type=local,dest=out_3 .
           diff folder_2/same_file out_3/payload
 
-      - name: Control — build 2 with the cache disabled fails loudly instead
+      - name: Control — a digest with no cache entry does fetch, and fails loudly
         if: always()
-        continue-on-error: true
+        run: |
+          if docker build \
+              --build-arg SRC_URL=http://127.0.0.1:8099/folder_2/same_file \
+              --build-arg SRC_SHA256="$UNSEEN_SHA256" \
+              --output type=local,dest=out_unseen . ; then
+            printf 'the build succeeded against a digest nothing published\n' >&2
+            exit 1
+          fi
+
+      - name: Control — --no-cache does NOT bypass the source cache
+        if: always()
         run: |
           docker build --no-cache \
             --build-arg SRC_URL=http://127.0.0.1:8099/folder_2/same_file \
             --build-arg SRC_SHA256="$ALPHA_SHA256" \
-            --output type=local,dest=out_4 .
+            --output type=local,dest=out_nocache .
+          diff folder_1/same_file out_nocache/payload

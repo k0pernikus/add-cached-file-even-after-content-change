@@ -33,6 +33,8 @@ ADD --checksum=sha256:${SRC_SHA256} ${SRC_URL} /payload
 | 1 | `folder_1/same_file` | ALPHA's | `ALPHA` | `ALPHA` |
 | 2 | `folder_2/same_file` | ALPHA's *(stale)* | **`ALPHA`** | `BRAVO`, or a loud failure |
 | 3 | `folder_2/same_file` | BRAVO's | `BRAVO` | `BRAVO` |
+| 4 | `folder_2/same_file` | ALPHA's, plus `--no-cache` | **`ALPHA`** | a fetch |
+| 5 | `folder_2/same_file` | a digest nothing published | *build fails* | *build fails* |
 
 Build 2 logs the reused layer:
 
@@ -41,16 +43,20 @@ Build 2 logs the reused layer:
 #6 CACHED
 ```
 
-Build 3 is the control that matters: the URL used in build 2 does serve different bytes, so the cache produced
-build 2's wrong content, not the server. A second control runs build 2 again with `--no-cache`, which fails as
-it should:
+Build 3 is the control that matters: the URL used in build 2 does serve different bytes, so the cache
+produced build 2's wrong content, not the server.
+
+Build 5 shows what the check does when it runs at all — a digest no build has populated forces the fetch and
+fails as it should:
 
 ```text
 ERROR: failed to build: failed to solve: digest mismatch
-  sha256:8a51c1b8...: sha256:1921b918...
+  sha256:8a51c1b8...: sha256:380ff935...
 ```
 
-So the outcome depends on cache state: a hit succeeds with the wrong content, a miss fails.
+Build 4 is the part that makes this hard to escape: **`--no-cache` does not reach the HTTP source cache.** It
+logs `#5 CACHED` and still yields `ALPHA`. So once an entry exists for a (basename, declared digest) pair,
+no build-side flag surfaces the inconsistency — the obvious escape hatch does not work.
 
 ## Why
 
