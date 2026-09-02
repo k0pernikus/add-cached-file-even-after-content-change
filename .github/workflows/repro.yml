@@ -40,7 +40,7 @@ jobs:
             --build-arg SRC_SHA256="$ALPHA_SHA256" \
             --output type=local,dest=out_2 .
 
-      - name: Build 2 must produce what its URL serves
+      - name: Build 2 should invalidate the cache and get file content BRAVO
         run: diff folder_2/same_file out_2/payload
 
       - name: Control — that URL does serve different bytes
