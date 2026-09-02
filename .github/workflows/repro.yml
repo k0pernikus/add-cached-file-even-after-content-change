@@ -14,6 +14,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Report the build environment
+        run: |
+          docker version
+          docker buildx version
+          docker buildx inspect default
+
       - name: Report the digest of each file as committed
         run: sha256sum folder_1/same_file folder_2/same_file
 
