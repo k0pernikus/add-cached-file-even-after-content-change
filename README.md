@@ -32,6 +32,7 @@ ADD --checksum=sha256:${SRC_SHA256} ${SRC_URL} /payload
 
 - `repro` fails. The URL is updated and the checksum is not.
 - `updated-checksum` passes. Both are updated together.
+- `no-checksum` passes. `ADD` without a checksum fetches on every build.
 
 ## Observed
 

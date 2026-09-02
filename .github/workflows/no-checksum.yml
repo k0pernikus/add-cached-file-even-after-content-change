@@ -1,0 +1,34 @@
+name: no-checksum
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  add-without-a-checksum-fetches-every-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Serve both files over HTTP
+        run: |
+          python3 -m http.server 8099 --bind 127.0.0.1 --directory . &
+          timeout 10 bash -c 'until curl --silent --fail --head http://127.0.0.1:8099/folder_1/same_file; do sleep 0.2; done'
+
+      - name: Build folder_1, populating the cache
+        run: |
+          docker build --file Dockerfile.no-checksum \
+            --build-arg SRC_URL=http://127.0.0.1:8099/folder_1/same_file \
+            --output type=local,dest=out_1 .
+
+      - name: The payload is ALPHA
+        run: diff folder_1/same_file out_1/payload
+
+      - name: Build folder_2, the same basename in another directory
+        run: |
+          docker build --file Dockerfile.no-checksum \
+            --build-arg SRC_URL=http://127.0.0.1:8099/folder_2/same_file \
+            --output type=local,dest=out_2 .
+
+      - name: The payload is BRAVO
+        run: diff folder_2/same_file out_2/payload

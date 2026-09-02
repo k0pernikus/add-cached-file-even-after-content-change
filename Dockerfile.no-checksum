@@ -1,0 +1,6 @@
+# syntax=docker/dockerfile:1
+FROM scratch
+
+ARG SRC_URL
+
+ADD ${SRC_URL} /payload
