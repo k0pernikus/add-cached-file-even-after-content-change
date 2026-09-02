@@ -2,8 +2,8 @@
 
 `ADD --checksum=sha256:<digest> <url> <dest>` keys its cache on the **declared digest and the URL's last path
 segment**, not on the URL. Two different URLs that share a basename therefore share a cache entry, and a build
-whose declared digest is stale for its URL silently receives the previously cached content — with no fetch, no
-verification, and a successful build.
+whose declared digest is stale for its URL receives the previously cached content. There is no fetch, no
+verification, and the build succeeds.
 
 ## What the repro contains
 
@@ -31,10 +31,10 @@ ADD --checksum=sha256:${SRC_SHA256} ${SRC_URL} /payload
 | build | URL | declared digest | `/payload` | expected |
 |:---|:---|:---|:---|:---|
 | 1 | `folder_1/same_file` | ALPHA's | `ALPHA` | `ALPHA` |
-| 2 | `folder_2/same_file` | ALPHA's *(stale)* | **`ALPHA`** | `BRAVO`, or a loud failure |
+| 2 | `folder_2/same_file` | ALPHA's *(stale)* | **`ALPHA`** | `BRAVO`, or a failed build |
 | 3 | `folder_2/same_file` | BRAVO's | `BRAVO` | `BRAVO` |
 | 4 | `folder_2/same_file` | ALPHA's, plus `--no-cache` | **`ALPHA`** | a fetch |
-| 5 | `folder_2/same_file` | a digest nothing published | *build fails* | *build fails* |
+| 5 | `folder_2/same_file` | a digest no build has used | *build fails* | *build fails* |
 
 Build 2 logs the reused layer:
 
@@ -43,20 +43,18 @@ Build 2 logs the reused layer:
 #6 CACHED
 ```
 
-Build 3 is the control that matters: the URL used in build 2 does serve different bytes, so the cache
-produced build 2's wrong content, not the server.
+Build 3 confirms that URL serves different bytes. Build 2's content therefore came from the cache, not from
+the server.
 
-Build 5 shows what the check does when it runs at all — a digest no build has populated forces the fetch and
-fails as it should:
+Build 5 uses a digest no build has populated. It fetches, compares, and fails:
 
 ```text
 ERROR: failed to build: failed to solve: digest mismatch
   sha256:8a51c1b8...: sha256:380ff935...
 ```
 
-Build 4 is the part that makes this hard to escape: **`--no-cache` does not reach the HTTP source cache.** It
-logs `#5 CACHED` and still yields `ALPHA`. So once an entry exists for a (basename, declared digest) pair,
-no build-side flag surfaces the inconsistency — the obvious escape hatch does not work.
+`--no-cache` does not reach the HTTP source cache. Build 4 passes it, logs `#5 CACHED`, and returns `ALPHA`.
+Once an entry exists for a (basename, declared digest) pair, no build flag surfaces the mismatch.
 
 ## Why
 
@@ -77,16 +75,15 @@ if hs.src.Checksum != "" {
 `getFileName` reduces it to `path.Base(u.Path)` — so `folder_1/same_file` and `folder_2/same_file` both
 contribute `same_file` and the directory is discarded. `LastModified` is nil, because nothing was fetched.
 
-## Why this is worth changing
+## Suggested fix
 
-Content-addressing makes the digest the identity of the *content*, which is why skipping the fetch is correct
-when the request is consistent. It does not require dropping the URL from the cache key. Keying on **(URL,
-digest)** preserves every cache hit an unchanged Dockerfile gets, which is the whole benefit, and forces a
-fetch only when the URL moves — after which verification either confirms the pair or fails loudly. Catching
-the inconsistency and skipping the fetch are therefore not mutually exclusive.
+Include the URL in the cache key. An unchanged Dockerfile keeps the same URL, so it still hits the cache and
+still skips the fetch. Only a changed URL misses, and that fetch is what catches a stale digest.
 
-The failure is silent and reaches published artifacts: a Dockerfile can declare version N, ship the binary of
-version N-1, and produce a clean build under an immutable tag naming the commit that declared N.
+## Impact
+
+The wrong content ships and no build reports it. A Dockerfile can declare one version, install the binary of
+an earlier version, and produce a successful build.
 
 ## Running it locally
 
@@ -104,4 +101,11 @@ docker build --build-arg SRC_URL=http://127.0.0.1:8099/folder_2/same_file \
 diff folder_2/same_file out_2/payload
 ```
 
-The final `diff` reports `ALPHA` where `BRAVO` was requested.
+The final `diff` reports:
+
+```text
+1c1
+< BRAVO
+---
+> ALPHA
+```

@@ -33,14 +33,14 @@ jobs:
       - name: Build 1 produced folder_1's content
         run: diff folder_1/same_file out_1/payload
 
-      - name: Build 2 — folder_2 with folder_1's STALE digest
+      - name: Build 2 — folder_2 with folder_1's stale digest
         run: |
           docker build \
             --build-arg SRC_URL=http://127.0.0.1:8099/folder_2/same_file \
             --build-arg SRC_SHA256="$ALPHA_SHA256" \
             --output type=local,dest=out_2 .
 
-      - name: Build 2 must produce what its URL serves — THIS STEP IS THE BUG
+      - name: Build 2 must produce what its URL serves
         run: diff folder_2/same_file out_2/payload
 
       - name: Control — that URL does serve different bytes
@@ -52,18 +52,18 @@ jobs:
             --output type=local,dest=out_3 .
           diff folder_2/same_file out_3/payload
 
-      - name: Control — a digest with no cache entry does fetch, and fails loudly
+      - name: Control — a digest with no cache entry is fetched and fails
         if: always()
         run: |
           if docker build \
               --build-arg SRC_URL=http://127.0.0.1:8099/folder_2/same_file \
               --build-arg SRC_SHA256="$UNSEEN_SHA256" \
               --output type=local,dest=out_unseen . ; then
-            printf 'the build succeeded against a digest nothing published\n' >&2
+            printf 'build succeeded with a digest that matches no served file\n' >&2
             exit 1
           fi
 
-      - name: Control — --no-cache does NOT bypass the source cache
+      - name: Control — --no-cache does not bypass the source cache
         if: always()
         run: |
           docker build --no-cache \
