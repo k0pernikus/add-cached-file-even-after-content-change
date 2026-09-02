@@ -34,7 +34,6 @@ ADD --checksum=sha256:${SRC_SHA256} ${SRC_URL} /payload
 | 2 | `folder_2/same_file` | ALPHA's *(stale)* | **`ALPHA`** | `BRAVO`, or a failed build |
 | 3 | `folder_2/same_file` | BRAVO's | `BRAVO` | `BRAVO` |
 | 4 | `folder_2/same_file` | ALPHA's, plus `--no-cache` | **`ALPHA`** | a fetch |
-| 5 | `folder_2/same_file` | a digest no build has used | *build fails* | *build fails* |
 
 Build 2 logs the reused layer:
 
@@ -45,13 +44,6 @@ Build 2 logs the reused layer:
 
 Build 3 confirms that URL serves different bytes. Build 2's content therefore came from the cache, not from
 the server.
-
-Build 5 uses a digest no build has populated. It fetches, compares, and fails:
-
-```text
-ERROR: failed to build: failed to solve: digest mismatch
-  sha256:8a51c1b8...: sha256:380ff935...
-```
 
 `--no-cache` does not reach the HTTP source cache. Build 4 passes it, logs `#5 CACHED`, and returns `ALPHA`.
 Once an entry exists for a (basename, declared digest) pair, no build flag surfaces the mismatch.
