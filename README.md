@@ -1,5 +1,7 @@
 # `ADD --checksum` ignores the URL in its cache key
 
+Note: Created with the help of Claude AI
+
 `ADD --checksum=sha256:<digest> <url> <dest>` keys its cache on the **declared digest and the URL's last path
 segment**, not on the URL. Two different URLs that share a basename therefore share a cache entry, and a build
 whose declared digest is stale for its URL receives the previously cached content. There is no fetch, no
