@@ -5,8 +5,6 @@ segment**, not on the URL. Two different URLs that share a basename therefore sh
 whose declared digest is stale for its URL silently receives the previously cached content — with no fetch, no
 verification, and a successful build.
 
-The `repro` workflow demonstrates it. Its fourth step is expected to **fail**, and that failure is the report.
-
 ## What the repro contains
 
 Two files with the same basename in different directories, with different content:
